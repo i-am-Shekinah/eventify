@@ -2,9 +2,11 @@ package com.codewithmike.eventify.event;
 
 
 import com.google.common.base.Preconditions;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -59,9 +61,22 @@ public class EventService {
     }
 
 
-    /*
-    public List<Event> searchEvents() {
 
-    } */
+    public List<Event> searchEvents(
+            String title,
+            String description,
+            String location,
+            LocalDateTime startDate,
+            LocalDateTime endDate
+    ) {
+        return eventRepository.findAll(
+                Specification.allOf(
+                        EventSpecifications.hasTitle(title),
+                        EventSpecifications.hasDescription(description),
+                        EventSpecifications.hasLocation(location),
+                        EventSpecifications.isBetweenDates(startDate, endDate)
+                )
+        );
+    }
 
 }
