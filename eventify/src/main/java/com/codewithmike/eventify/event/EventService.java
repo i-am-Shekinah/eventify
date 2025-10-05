@@ -14,11 +14,16 @@ import java.util.UUID;
 @Service
 public class EventService {
     private final EventRepository eventRepository;
+    private final EventMapper eventMapper;
 
-    public EventService(EventRepository eventRepository) {
+    public EventService(EventRepository eventRepository, EventMapper eventMapper) {
         this.eventRepository = Preconditions.checkNotNull(
                 eventRepository,
                 "eventRepository cannot be null"
+        );
+        this.eventMapper = Preconditions.checkNotNull(
+                eventMapper,
+                "eventMapper cannot be null"
         );
     }
 
@@ -27,7 +32,7 @@ public class EventService {
     }
 
 
-    public Optional<Event> updateEvent(UUID id, Event updatedEvent) {
+    public Optional<EventDto> updateEvent(UUID id, EventDto updatedEventDto) {
 
         // check event exists
         Preconditions.checkNotNull(
@@ -38,12 +43,40 @@ public class EventService {
 
         return eventRepository.findById(id)
                 .map(event -> {
-                    event.setTitle(updatedEvent.getTitle());
-                    event.setDescription(updatedEvent.getDescription());
-                    event.setLocation(updatedEvent.getLocation());
-                    event.setDate(updatedEvent.getDate());
+                    event.setTitle(updatedEventDto.getTitle());
+                    event.setDescription(updatedEventDto.getDescription());
+                    event.setLocation(updatedEventDto.getLocation());
+                    event.setDate(updatedEventDto.getDate());
                     return eventRepository.save(event);
-                });
+                })
+                .map(eventMapper::toDto);
+    }
+
+    public Optional<EventDto> patchEvent(UUID id, EventDto partialEventDto) {
+        // check event exists
+        Preconditions.checkNotNull(
+                id,
+                "Unable to update event - Event with ID '%s' not found",
+                id
+        );
+
+        return eventRepository.findById(id)
+                .map(event -> {
+                    if (partialEventDto.getTitle() != null) {
+                        event.setTitle(partialEventDto.getTitle());
+                    }
+                    if (partialEventDto.getDescription() != null) {
+                        event.setDescription(partialEventDto.getDescription());
+                    }
+                    if (partialEventDto.getLocation() != null) {
+                        event.setLocation(partialEventDto.getLocation());
+                    }
+                    if (partialEventDto.getDate() != null) {
+                        event.setDate(partialEventDto.getDate());
+                    }
+                    return eventRepository.save(event);
+                })
+                .map(eventMapper::toDto);
     }
 
     public void deleteEvent(UUID id) {

@@ -3,6 +3,7 @@ package com.codewithmike.eventify.event;
 
 import com.google.common.base.Preconditions;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -31,9 +32,25 @@ public class EventController {
     }
 
     @PutMapping("/{id}")
-    public Optional<Event> updateEvent(@PathVariable UUID id, @RequestBody Event updatedEvent) {
-        return eventService.updateEvent(id, updatedEvent);
+    public ResponseEntity<EventDto> updateEvent(
+            @PathVariable UUID id,
+            @RequestBody EventDto updatedEventDto
+    ) {
+        return eventService.updateEvent(id, updatedEventDto)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<EventDto> patchEvent(
+            @PathVariable UUID id,
+            @RequestBody EventDto eventDto
+    ) {
+        return eventService.patchEvent(id, eventDto)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
 
     @DeleteMapping("/{id}")
     public void deleteEvent(@PathVariable UUID id) {
