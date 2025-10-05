@@ -3,6 +3,7 @@ package com.codewithmike.eventify.event;
 
 import com.google.common.base.Preconditions;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,9 +28,15 @@ public class EventController {
     }
 
     @PostMapping
-    public Event createEvent(@RequestBody Event event) {
-        return eventService.createEvent(event);
+    public ResponseEntity<EventDto> createEvent(@RequestBody EventDto eventDto) {
+        EventDto createdEvent = eventService.createEvent(eventDto);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .header("Location", "api/events/" + createdEvent.getId())
+                .body(createdEvent);
     }
+
 
     @PutMapping("/{id}")
     public ResponseEntity<EventDto> updateEvent(
@@ -53,8 +60,14 @@ public class EventController {
 
 
     @DeleteMapping("/{id}")
-    public void deleteEvent(@PathVariable UUID id) {
-        eventService.deleteEvent(id);
+    public ResponseEntity<Void> deleteEvent(@PathVariable UUID id) {
+        boolean deleted = eventService.deleteEvent(id);
+
+        if (deleted) {
+            return ResponseEntity.noContent().build();
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/search")

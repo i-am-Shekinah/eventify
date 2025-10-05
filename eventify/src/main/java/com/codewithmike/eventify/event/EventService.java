@@ -27,8 +27,10 @@ public class EventService {
         );
     }
 
-    public Event createEvent(Event event) {
-        return eventRepository.save(event);
+    public EventDto createEvent(EventDto eventDto) {
+        Event event = eventMapper.toEntity(eventDto);
+        Event savedEvent = eventRepository.save(event);
+        return eventMapper.toDto(savedEvent);
     }
 
 
@@ -79,14 +81,20 @@ public class EventService {
                 .map(eventMapper::toDto);
     }
 
-    public void deleteEvent(UUID id) {
+    public boolean deleteEvent(UUID id) {
         Preconditions.checkNotNull(
                 id,
                 "Unable to delete event - Event with ID '%s' not found",
                 id
         );
 
-        eventRepository.deleteById(id);
+        if (eventRepository.existsById(id)) {
+            eventRepository.deleteById(id);
+            return  true;
+        } else {
+            return false;
+        }
+
     }
 
     public List<Event> fetchAllEvents() {
