@@ -2,7 +2,6 @@ package com.codewithmike.eventify.participant;
 
 
 import com.google.common.base.Preconditions;
-import jakarta.servlet.http.Part;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 

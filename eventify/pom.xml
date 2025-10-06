@@ -82,6 +82,12 @@
             <version>1.14.1</version>
         </dependency>
 
+        <!-- Swagger/OpenAPI for Spring Boot -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>3.0.0-M1</version>
+        </dependency>
 
 
         <dependency>
