@@ -2,10 +2,7 @@ package com.codewithmike.eventify.participant;
 
 
 import com.codewithmike.eventify.event.Event;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +14,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Entity
 public class Participant {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
