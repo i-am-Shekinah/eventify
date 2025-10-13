@@ -1,123 +1,93 @@
 package com.codewithmike.eventify.event;
 
-
-import com.google.common.base.Preconditions;
+import com.codewithmike.eventify.security.SecurityUtil;
+import com.codewithmike.eventify.user.User;
+import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
-
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class EventService {
-    private final EventRepository eventRepository;
-    private final EventMapper eventMapper;
 
-    public EventService(EventRepository eventRepository, EventMapper eventMapper) {
-        this.eventRepository = Preconditions.checkNotNull(
-                eventRepository,
-                "eventRepository cannot be null"
-        );
-        this.eventMapper = Preconditions.checkNotNull(
-                eventMapper,
-                "eventMapper cannot be null"
-        );
+    private final EventRepository repository;
+    private final EventMapper mapper;
+
+    public EventService(EventRepository repository, EventMapper mapper) {
+        this.repository = repository;
+        this.mapper = mapper;
     }
 
-    public EventDto createEvent(EventDto eventDto) {
-        Event event = eventMapper.toEntity(eventDto);
-        Event savedEvent = eventRepository.save(event);
-        return eventMapper.toDto(savedEvent);
+    public Page<EventDto> fetchAllEvents(Pageable pageable) {
+        User currentUser = SecurityUtil.currentUser();
+        if (currentUser == null) {
+            throw new RuntimeException("Unauthenticated");
+        }
+
+        Page<Event> events = repository.findByOwnerId(currentUser.getId(), pageable);
+        return events.map(mapper::toDto);
     }
 
 
-    public Optional<EventDto> updateEvent(UUID id, EventDto updatedEventDto) {
+    public EventDto createEvent(EventDto dto) {
+        User u = SecurityUtil.currentUser();
+        if (u == null) throw new RuntimeException("Unauthenticated");
 
-        // check event exists
-        Preconditions.checkNotNull(
-                id,
-                "Unable to update event - Event with ID '%s' not found",
-                id
-        );
-
-        return eventRepository.findById(id)
-                .map(event -> {
-                    event.setTitle(updatedEventDto.getTitle());
-                    event.setDescription(updatedEventDto.getDescription());
-                    event.setLocation(updatedEventDto.getLocation());
-                    event.setDate(updatedEventDto.getDate());
-                    return eventRepository.save(event);
-                })
-                .map(eventMapper::toDto);
+        Event e = mapper.toEntity(dto);
+        e.setOwner(u);
+        e = repository.save(e);
+        return mapper.toDto(e);
     }
 
-    public Optional<EventDto> patchEvent(UUID id, EventDto partialEventDto) {
-        // check event exists
-        Preconditions.checkNotNull(
-                id,
-                "Unable to update event - Event with ID '%s' not found",
-                id
-        );
+    public Optional<EventDto> updateEvent(UUID id, EventDto dto) {
+        User u = SecurityUtil.currentUser();
+        return repository.findByIdAndOwnerId(id, u.getId()).map(existing -> {
+            existing.setTitle(dto.getTitle());
+            existing.setDescription(dto.getDescription());
+            existing.setLocation(dto.getLocation());
+            existing.setDate(dto.getDate());
+            return mapper.toDto(repository.save(existing));
+        });
+    }
 
-        return eventRepository.findById(id)
-                .map(event -> {
-                    if (partialEventDto.getTitle() != null) {
-                        event.setTitle(partialEventDto.getTitle());
-                    }
-                    if (partialEventDto.getDescription() != null) {
-                        event.setDescription(partialEventDto.getDescription());
-                    }
-                    if (partialEventDto.getLocation() != null) {
-                        event.setLocation(partialEventDto.getLocation());
-                    }
-                    if (partialEventDto.getDate() != null) {
-                        event.setDate(partialEventDto.getDate());
-                    }
-                    return eventRepository.save(event);
-                })
-                .map(eventMapper::toDto);
+    public Optional<EventDto> patchEvent(UUID id, EventDto dto) {
+        User u = SecurityUtil.currentUser();
+        return repository.findByIdAndOwnerId(id, u.getId()).map(existing -> {
+            if (dto.getTitle() != null) existing.setTitle(dto.getTitle());
+            if (dto.getDescription() != null) existing.setDescription(dto.getDescription());
+            if (dto.getLocation() != null) existing.setLocation(dto.getLocation());
+            if (dto.getDate() != null) existing.setDate(dto.getDate());
+            return mapper.toDto(repository.save(existing));
+        });
     }
 
     public boolean deleteEvent(UUID id) {
-        Preconditions.checkNotNull(
-                id,
-                "Unable to delete event - Event with ID '%s' not found",
-                id
-        );
-
-        if (eventRepository.existsById(id)) {
-            eventRepository.deleteById(id);
-            return  true;
-        } else {
-            return false;
-        }
-
+        User u = SecurityUtil.currentUser();
+        return repository.findByIdAndOwnerId(id, u.getId()).map(existing -> {
+            repository.delete(existing);
+            return true;
+        }).orElse(false);
     }
 
-    public List<Event> fetchAllEvents() {
-        return eventRepository.findAll();
-    }
+    public Page<Event> searchEvents(String title, String description, String location,
+                                    LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+        User u = SecurityUtil.currentUser();
 
+        Specification<Event> ownerSpec = (root, query, cb) ->
+                cb.equal(root.get("owner").get("id"), u.getId());
 
-
-    public List<Event> searchEvents(
-            String title,
-            String description,
-            String location,
-            LocalDateTime startDate,
-            LocalDateTime endDate
-    ) {
-        return eventRepository.findAll(
-                Specification.allOf(
-                        EventSpecifications.hasTitle(title),
-                        EventSpecifications.hasDescription(description),
-                        EventSpecifications.hasLocation(location),
-                        EventSpecifications.isBetweenDates(startDate, endDate)
-                )
+        Specification<Event> spec = Specification.allOf(
+                ownerSpec,
+                EventSpecifications.hasTitle(title),
+                EventSpecifications.hasDescription(description),
+                EventSpecifications.hasLocation(location),
+                EventSpecifications.isBetweenDates(startDate, endDate)
         );
+
+        return repository.findAll(spec, pageable);
     }
 
 }

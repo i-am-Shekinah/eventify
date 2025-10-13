@@ -9,12 +9,13 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -54,8 +55,8 @@ public class EventController {
             }
     )
     @GetMapping
-    public List<Event> fetchAllEvents() {
-        return eventService.fetchAllEvents();
+    public Page<EventDto> fetchMyEvents(Pageable pageable) {
+        return eventService.fetchAllEvents(pageable);
     }
 
     @Operation(
@@ -189,25 +190,29 @@ public class EventController {
 
 
     @Operation(
-            summary = "Search events using multiple filters",
+            summary = "Search user's events with optional filters",
             description = """
-                Allows users to search for events using any combination of filters: 
-                title, description, location, startDate, and endDate.
-                All parameters are optional — if none are provided, all events are returned.
+                Fetch events belonging to the authenticated user, filtered by title, description, location,
+                or date range. Supports pagination and sorting via query parameters.
                 """,
             responses = {
                     @ApiResponse(
                             responseCode = "200",
-                            description = "List of matching events",
+                            description = "Filtered list of events fetched successfully",
                             content = @Content(
                                     mediaType = "application/json",
-                                    array = @ArraySchema(schema = @Schema(implementation = Event.class))
+                                    schema = @Schema(implementation = Event.class)
                             )
+                    ),
+                    @ApiResponse(
+                            responseCode = "401",
+                            description = "Unauthorized – user not authenticated",
+                            content = @Content
                     )
             }
     )
     @GetMapping("/search")
-    public List<Event> searchEvents(
+    public ResponseEntity<Page<Event>> searchEvents(
             @Parameter(description = "Filter events by title (case-insensitive)")
             @RequestParam(required = false) String title,
 
@@ -227,9 +232,14 @@ public class EventController {
                     description = "Filter events ending before this date and time (ISO format: yyyy-MM-dd'T'HH:mm:ss)"
             )
             @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+
+            @Parameter(description = "Pagination and sorting parameters")
+            Pageable pageable
     ) {
-        return eventService.searchEvents(title, description, location, startDate, endDate);
+        Page<Event> results = eventService.searchEvents(title, description, location, startDate, endDate, pageable);
+        return ResponseEntity.ok(results);
     }
+
 
 }
