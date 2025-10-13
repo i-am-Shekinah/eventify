@@ -100,3 +100,26 @@ Jane,Smith,jane@example.com,0987654321,CONFIRMED
 * Support bulk participant deletion.
 * Add pagination for event and participant listings.
 * Switch to a production-grade database (PostgreSQL/MySQL).
+
+
+## Week 2 — Security, Ownership & Invitation Tracking
+
+### New features:
+- JWT-based authentication (signup/login).
+- Event ownership: each event belongs to a user; users can only manage their own events and participants.
+- Invitation tracking for participants (PENDING | ACCEPTED | DECLINED).
+- Pagination support for event and participant listings (page, size, sort).
+- Swagger docs updated to support Bearer token authorization.
+
+### Testing:
+1. POST /api/auth/signup -> create user
+2. POST /api/auth/login -> receive { "token": "..." }
+3. Add header: Authorization: Bearer <token> for subsequent requests
+4. Create events, upload participants, list events with `?page=0&size=10`
+
+### Assumptions:
+- JWT signing key is generated on startup for dev; in production store a stable secret.
+- Duplicate participants detection: email + event.
+- Deleting an event cascades participants (JPA cascade configuration preserved).
+- Only three invitation statuses allowed: PENDING, ACCEPTED, DECLINED.
+
