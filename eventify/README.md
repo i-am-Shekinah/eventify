@@ -169,7 +169,7 @@ Jane,Smith,jane@example.com,0987654321,CONFIRMED
 All endpoints automatically scope queries to the authenticated user:
 
 ```java
-WHERE owner_id = currentUser.id
+WHERE owner_id = currentUser.id;
 ```
 
 Users can only access, update, or delete their own events.
@@ -206,3 +206,11 @@ Content-Type: application/json
   "date": "2025-11-01T18:00:00"
 }
 ```
+
+## Swagger-docs
+Start the application and visit [http://localhost:8080/swagger-ui/index.html
+](http://localhost:8080/swagger-ui/index.html
+)
+
+## Author
+[Michael Olatunji](https://github.com/i-am-Shekinah)

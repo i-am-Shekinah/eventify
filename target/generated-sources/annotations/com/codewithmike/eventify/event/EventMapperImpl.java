@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    date = "2025-10-06T12:04:39+0100",
+    date = "2025-10-13T10:26:44+0100",
     comments = "version: 1.6.3, compiler: javac, environment: Java 25 (Oracle Corporation)"
 )
 @Component
@@ -36,7 +36,6 @@ public class EventMapperImpl implements EventMapper {
 
         Event.EventBuilder event = Event.builder();
 
-        event.id( dto.getId() );
         event.title( dto.getTitle() );
         event.description( dto.getDescription() );
         event.location( dto.getLocation() );
