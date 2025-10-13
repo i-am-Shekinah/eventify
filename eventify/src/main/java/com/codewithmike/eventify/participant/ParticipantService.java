@@ -2,13 +2,15 @@ package com.codewithmike.eventify.participant;
 
 import com.codewithmike.eventify.event.Event;
 import com.codewithmike.eventify.event.EventRepository;
-import com.google.common.base.Preconditions;
+import com.codewithmike.eventify.security.SecurityUtil;
+import com.codewithmike.eventify.user.User;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -16,77 +18,92 @@ import java.util.*;
 
 @Service
 public class ParticipantService {
-    private EventRepository eventRepository;
-    private ParticipantRepository participantRepository;
+
+    private final ParticipantRepository participantRepository;
+    private final EventRepository eventRepository;
 
     public ParticipantService(ParticipantRepository participantRepository, EventRepository eventRepository) {
-        this.participantRepository = Preconditions.checkNotNull(
-                participantRepository,
-                "participantRepository cannot be null"
-        );
-        this.eventRepository = Preconditions.checkNotNull(
-                eventRepository,
-                "eventRepository cannot be null"
-        );
+        this.participantRepository = participantRepository;
+        this.eventRepository = eventRepository;
     }
 
-
     public Map<String, Object> addParticipantsFromCsv(UUID eventId, MultipartFile file) throws Exception {
+        User u = SecurityUtil.currentUser();
         Event event = eventRepository.findById(eventId)
-                .orElseThrow(() -> new RuntimeException("Event not found with ID: " + eventId));
+                .orElseThrow(() -> new RuntimeException("Event not found"));
+        // check ownership
+        if (!event.getOwner().getId().equals(u.getId())) {
+            throw new RuntimeException("Access denied");
+        }
 
-        List<Participant> participantsAdded = new ArrayList<>();
-        List<String> duplicatesSkipped = new ArrayList<>();
+        List<Participant> added = new ArrayList<>();
+        List<String> skipped = new ArrayList<>();
+        Set<String> existing = new HashSet<>();
+        participantRepository.findByEventId(eventId, Pageable.ofSize(Integer.MAX_VALUE))
+                .forEach(p -> existing.add(p.getEmail().toLowerCase()));
 
-        // Load existing emails for duplicate checking
-        Set<String> existingEmails = new HashSet<>();
-        participantRepository.findByEventId(eventId)
-                .forEach(p -> existingEmails.add(p.getEmail().toLowerCase()));
-
-        // Parse CSV
         try (CSVParser parser = CSVParser.parse(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8),
-                CSVFormat.DEFAULT
-                        .withHeader("firstname", "lastname", "email", "phone", "status")
-                        .withSkipHeaderRecord(true)
-                        .withIgnoreHeaderCase(true)
-                        .withTrim())) {
+                CSVFormat.DEFAULT.builder()
+                        .setHeader("firstname", "lastname", "email", "phone", "status")
+                        .setSkipHeaderRecord(true)
+                        .setIgnoreHeaderCase(true)
+                        .setTrim(true)
+                        .build()
+        )) {
+            for (CSVRecord r : parser) {
+                String firstname = r.get("firstname");
+                String lastname = r.get("lastname");
+                String email = r.get("email").toLowerCase();
+                String phone = r.isMapped("phone") ? r.get("phone") : "";
+                String statusStr = r.isMapped("status") ? r.get("status") : "PENDING";
+                InvitationStatus status;
+                try { status = InvitationStatus.valueOf(statusStr.toUpperCase()); }
+                catch (Exception ex) { status = InvitationStatus.PENDING; }
 
-            for (CSVRecord record : parser) {
-                String firstname = record.get("firstname");
-                String lastname = record.get("lastname");
-                String email = record.get("email").toLowerCase();
-                String phone = record.isMapped("phone") ? record.get("phone") : "";
-                String status = record.isMapped("status") ? record.get("status") : "PENDING";
-
-                if (existingEmails.contains(email)) {
-                    duplicatesSkipped.add(email);
+                if (existing.contains(email)) {
+                    skipped.add(email);
                     continue;
                 }
 
-                Participant participant = Participant.builder()
+                Participant p = Participant.builder()
                         .firstname(firstname)
                         .lastname(lastname)
                         .email(email)
                         .phoneNumber(phone)
                         .invitationStatus(status)
+                        .event(event)
                         .build();
 
-                participantsAdded.add(participantRepository.save(participant));
-                existingEmails.add(email);
+                added.add(participantRepository.save(p));
+                existing.add(email);
             }
         }
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("addedCount", participantsAdded.size());
-        result.put("skippedCount", duplicatesSkipped.size());
-        result.put("skippedEmails", duplicatesSkipped);
-        result.put("addedParticipants", participantsAdded);
-
-        return result;
+        Map<String,Object> out = new HashMap<>();
+        out.put("addedCount", added.size());
+        out.put("skippedCount", skipped.size());
+        out.put("skippedEmails", skipped);
+        out.put("addedParticipants", added);
+        return out;
     }
 
-    public List<Participant> getParticipantsForEvent(UUID eventId) {
-        return participantRepository.findByEventId(eventId);
+    public Page<Participant> getParticipantsForEvent(UUID eventId, Pageable pageable) {
+        User u = SecurityUtil.currentUser();
+        Event event = eventRepository.findById(eventId).orElseThrow(() -> new RuntimeException("Event not found"));
+        if (!event.getOwner().getId().equals(u.getId())) throw new RuntimeException("Access denied");
+        return participantRepository.findByEventId(eventId, pageable);
+    }
+
+    public Participant updateInvitationStatus(UUID eventId, UUID participantId, InvitationStatus status) {
+        User u = SecurityUtil.currentUser();
+        Event event = eventRepository.findById(eventId).orElseThrow(() -> new RuntimeException("Event not found or access denied"));
+        if (!event.getOwner().getId().equals(u.getId())) throw new RuntimeException("Access denied");
+
+        Participant p = participantRepository.findByIdAndEventId(participantId, eventId)
+                .orElseThrow(() -> new RuntimeException("Participant not found"));
+
+        p.setInvitationStatus(status);
+        return participantRepository.save(p);
     }
 }

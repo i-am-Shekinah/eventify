@@ -25,10 +25,12 @@ public class Participant {
     private String email;
     private String phoneNumber;
 
+    @Enumerated(EnumType.STRING)
     @Builder.Default
-    private String invitationStatus = "PENDING";
+    private InvitationStatus invitationStatus = InvitationStatus.PENDING;
 
 
     @ManyToOne
+    @JoinColumn(name = "event_id")
     private Event event;
 }

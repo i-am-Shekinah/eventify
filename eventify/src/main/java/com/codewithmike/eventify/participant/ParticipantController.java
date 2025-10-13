@@ -8,6 +8,8 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -92,10 +94,13 @@ public class ParticipantController {
     )
     // Get all participants for a specific event
     @GetMapping("event/{eventId}")
-    public List<Participant> getParticipants(
+    public Page<Participant> getParticipants(
             @Parameter(description = "UUID of the event", required = true)
-            @PathVariable UUID eventId
+            @PathVariable UUID eventId,
+
+            @Parameter(description = "Pagination and sorting parameters")
+            Pageable pageable
     ) {
-        return participantService.getParticipantsForEvent(eventId);
+        return participantService.getParticipantsForEvent(eventId, pageable);
     }
 }
