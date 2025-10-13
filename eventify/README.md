@@ -35,7 +35,11 @@ Feature-based project structure:
 
 ```
 src/main/java/com/codewithmike/eventify
-├── event
+├── auth/
+|   ├── AuthController.java
+├── config/
+|   ├── SwaggerConfig.java
+├── event/
 │   ├── Event.java
 │   ├── EventController.java
 │   ├── EventDto.java
@@ -43,11 +47,24 @@ src/main/java/com/codewithmike/eventify
 │   └── EventRepository.java
 |   └── EventService.java
 |   └── EventSpecifications.java
-├── participant
+├── participant/
+|   ├── InvitationStatus.java
 │   ├── Participant.java
 │   ├── ParticipantController.java
 │   ├── ParticipantRepository.java
 │   └── ParticipantService.java
+├── security/
+|   ├── JwtAuthenticationFilter.java
+|   ├── JwtUtil.java
+|   ├── SecurityConfig.java
+|   ├── SecurityUtil.java
+├── user/
+|   ├── dto/
+|   |   ├── UserCreateRequestDto.java
+|   |   ├── UserDto.java
+|   ├── User.java
+|   ├── UserMapper.java
+|   ├── UserRepository.java
 └── EventifyApplication.java
 ```
 
@@ -122,4 +139,70 @@ Jane,Smith,jane@example.com,0987654321,CONFIRMED
 - Duplicate participants detection: email + event.
 - Deleting an event cascades participants (JPA cascade configuration preserved).
 - Only three invitation statuses allowed: PENDING, ACCEPTED, DECLINED.
+- Users can only access, update, or delete their own events.
 
+## 🎯 Eventify API Endpoints
+
+### Base URL
+
+```
+/api/events
+```
+
+---
+
+## 📘 Event Management Endpoints
+
+| HTTP Method | Endpoint             | Description                                                                   | Auth Required | Request Body / Params                                                                                                                                                                       | Returns                      |
+| ----------- | -------------------- | ----------------------------------------------------------------------------- |---------------| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| **GET**     | `/api/events`        | Fetch all events belonging to the currently authenticated user.               | Yes           | Pagination params: `?page=0&size=10&sort=title,asc`                                                                                                                                         | `Page<EventDto>`             |
+| **POST**    | `/api/events`        | Create a new event for the authenticated user.                                | Yes           | JSON body: `{ "title": "...", "description": "...", "location": "...", "date": "..." }`                                                                                                     | `EventDto`                   |
+| **PUT**     | `/api/events/{id}`   | Update (replace) an existing event by its ID (only if owned by current user). | Yes           | JSON body: `{ "title": "...", "description": "...", "location": "...", "date": "..." }`                                                                                                     | `EventDto`                   |
+| **PATCH**   | `/api/events/{id}`   | Partially update an event (only change provided fields).                      | Yes           | JSON body: `{ "title": "...", "location": "..." }`                                                                                                                                          | `EventDto`                   |
+| **DELETE**  | `/api/events/{id}`   | Delete an event owned by the current user.                                    | Yes           | —                                                                                                                                                                                           | `204 No Content` or `200 OK` |
+| **GET**     | `/api/events/search` | Search the authenticated user's events using filters.                         | Yes           | Query params:<br>• `title` (optional)<br>• `description` (optional)<br>• `location` (optional)<br>• `startDate` (optional)<br>• `endDate` (optional)<br>• `page`, `size`, `sort` (optional) | `Page<EventDto>`             |
+
+---
+
+## 🔐 Ownership Rules
+
+All endpoints automatically scope queries to the authenticated user:
+
+```java
+WHERE owner_id = currentUser.id
+```
+
+Users can only access, update, or delete their own events.
+
+---
+
+## 🧭 Example Requests
+
+### 1️⃣ Get all events for current user
+
+```bash
+GET /api/events?page=0&size=5&sort=date,desc
+Authorization: Bearer <JWT_TOKEN>
+```
+
+### 2️⃣ Search events
+
+```bash
+GET /api/events/search?title=workshop&location=lagos&startDate=2025-10-01T00:00:00
+Authorization: Bearer <JWT_TOKEN>
+```
+
+### 3️⃣ Create an event
+
+```bash
+POST /api/events
+Authorization: Bearer <JWT_TOKEN>
+Content-Type: application/json
+
+{
+  "title": "Tech Meetup",
+  "description": "Developers gathering",
+  "location": "Lagos",
+  "date": "2025-11-01T18:00:00"
+}
+```
